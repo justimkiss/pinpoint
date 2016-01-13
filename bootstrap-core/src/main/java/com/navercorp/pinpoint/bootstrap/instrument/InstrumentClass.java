@@ -16,10 +16,10 @@
 
 package com.navercorp.pinpoint.bootstrap.instrument;
 
-import java.util.List;
-
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.ExecutionPolicy;
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.InterceptorScope;
+
+import java.util.List;
 
 /**
  * @author emeroad
@@ -68,6 +68,8 @@ public interface InstrumentClass {
     void addField(String accessorTypeName) throws InstrumentException;
 
     void addGetter(String getterTypeName, String fieldName) throws InstrumentException;
+
+    void addSetter(String setterTypeName, String fieldName) throws InstrumentException;
 
 
     int addInterceptor(String interceptorClassName) throws InstrumentException;

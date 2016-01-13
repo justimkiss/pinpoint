@@ -16,33 +16,11 @@
 
 package com.navercorp.pinpoint.profiler.instrument;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import com.navercorp.pinpoint.bootstrap.context.TraceContext;
 import com.navercorp.pinpoint.bootstrap.instrument.*;
-import com.navercorp.pinpoint.bootstrap.interceptor.scope.InterceptorScope;
-import javassist.CannotCompileException;
-import javassist.CtBehavior;
-import javassist.CtClass;
-import javassist.CtConstructor;
-import javassist.CtField;
-import javassist.CtMethod;
-import javassist.CtNewMethod;
-import javassist.NotFoundException;
-import javassist.bytecode.MethodInfo;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.navercorp.pinpoint.bootstrap.interceptor.annotation.TargetConstructor;
-import com.navercorp.pinpoint.bootstrap.interceptor.annotation.TargetConstructors;
-import com.navercorp.pinpoint.bootstrap.interceptor.annotation.TargetFilter;
-import com.navercorp.pinpoint.bootstrap.interceptor.annotation.TargetMethod;
-import com.navercorp.pinpoint.bootstrap.interceptor.annotation.TargetMethods;
+import com.navercorp.pinpoint.bootstrap.interceptor.annotation.*;
 import com.navercorp.pinpoint.bootstrap.interceptor.scope.ExecutionPolicy;
+import com.navercorp.pinpoint.bootstrap.interceptor.scope.InterceptorScope;
 import com.navercorp.pinpoint.bootstrap.plugin.ObjectFactory;
 import com.navercorp.pinpoint.common.util.Asserts;
 import com.navercorp.pinpoint.exception.PinpointException;
@@ -53,6 +31,15 @@ import com.navercorp.pinpoint.profiler.interceptor.registry.InterceptorRegistryB
 import com.navercorp.pinpoint.profiler.objectfactory.AutoBindingObjectFactory;
 import com.navercorp.pinpoint.profiler.objectfactory.InterceptorArgumentProvider;
 import com.navercorp.pinpoint.profiler.util.JavaAssistUtils;
+import javassist.*;
+import javassist.bytecode.MethodInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author emeroad
@@ -385,6 +372,34 @@ public class JavassistClass implements InstrumentClass {
             ctClass.addInterface(ctInterface);
         } catch (Exception e) {
             throw new InstrumentException("Fail to add getter: " + getterTypeName, e);
+        }
+    }
+
+    @Override
+    public void addSetter(String setterTypeName, String fieldName) throws InstrumentException {
+        try {
+            Class<?> setterType = pluginContext.injectClass(classLoader, setterTypeName);
+
+            SetterAnalyzer.SetterDetails setterDetails = new SetterAnalyzer().analyze(setterType);
+
+            CtField field = ctClass.getField(fieldName);
+
+            if (!field.getType().getName().equals(setterDetails.getFieldType().getName())) {
+                throw new IllegalArgumentException("Return type of the getter is different with the field type. setterMethod: " + setterDetails.getSetter() + ", fieldType: " + field.getType().getName());
+            }
+
+            CtMethod setterMethod = CtNewMethod.setter(setterDetails.getSetter().getName(), field);
+
+            if (setterMethod.getDeclaringClass() != ctClass) {
+                setterMethod = CtNewMethod.copy(setterMethod, ctClass, null);
+            }
+
+            ctClass.addMethod(setterMethod);
+
+            CtClass ctInterface = ctClass.getClassPool().get(setterTypeName);
+            ctClass.addInterface(ctInterface);
+        } catch (Exception e) {
+            throw new InstrumentException("Fail to add setter: " + setterTypeName, e);
         }
     }
 
