@@ -16,10 +16,7 @@
 
 package com.navercorp.pinpoint.web.service;
 
-import java.util.*;
-
-import com.navercorp.pinpoint.common.bo.AgentInfoBo;
-import com.navercorp.pinpoint.common.bo.AgentLifeCycleBo;
+import com.google.common.collect.Ordering;
 import com.navercorp.pinpoint.common.util.AgentLifeCycleState;
 import com.navercorp.pinpoint.web.dao.AgentInfoDao;
 import com.navercorp.pinpoint.web.dao.AgentLifeCycleDao;
@@ -27,13 +24,22 @@ import com.navercorp.pinpoint.web.dao.ApplicationIndexDao;
 import com.navercorp.pinpoint.web.vo.AgentInfo;
 import com.navercorp.pinpoint.web.vo.AgentStatus;
 import com.navercorp.pinpoint.web.vo.Application;
+import com.navercorp.pinpoint.web.vo.ApplicationAgentHostList;
 import com.navercorp.pinpoint.web.vo.ApplicationAgentList;
-
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.PredicateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 /**
  * @author netspider
@@ -95,31 +101,19 @@ public class AgentInfoServiceImpl implements AgentInfoService {
         // value= list fo agentinfo
         SortedMap<String, List<AgentInfo>> result = new TreeMap<>();
 
-        for (String agentId : agentIdList) {
-            AgentInfoBo agentInfoBo = this.agentInfoDao.getAgentInfo(agentId, timestamp);
+        List<AgentInfo> agentInfos = this.agentInfoDao.getAgentInfos(agentIdList, timestamp);
+        this.agentLifeCycleDao.populateAgentStatuses(agentInfos, timestamp);
+        for (AgentInfo agentInfo : agentInfos) {
+            if (agentInfo != null) {
+                String hostname = applicationAgentListKey.getKey(agentInfo);
 
-            if (agentInfoBo == null) {
-                continue;
-            }
-
-            final AgentInfo agentInfo = new AgentInfo(agentInfoBo);
-
-            final AgentStatus currentStatus = this.getAgentStatus(agentId, timestamp);
-            agentInfo.setStatus(currentStatus);
-
-            final AgentInfoBo initialAgentInfo = this.agentInfoDao.getInitialAgentInfo(agentId);
-            if (initialAgentInfo != null) {
-                agentInfo.setInitialStartTimestamp(initialAgentInfo.getStartTime());
-            }
-
-            String hostname = applicationAgentListKey.getKey(agentInfo);
-
-            if (result.containsKey(hostname)) {
-                result.get(hostname).add(agentInfo);
-            } else {
-                List<AgentInfo> list = new ArrayList<>();
-                list.add(agentInfo);
-                result.put(hostname, list);
+                if (result.containsKey(hostname)) {
+                    result.get(hostname).add(agentInfo);
+                } else {
+                    List<AgentInfo> list = new ArrayList<>();
+                    list.add(agentInfo);
+                    result.put(hostname, list);
+                }
             }
         }
 
@@ -133,37 +127,86 @@ public class AgentInfoServiceImpl implements AgentInfoService {
     }
 
     @Override
-    public Set<AgentInfo> getAgentsByApplicationName(String applicationName, long timestamp) {
-        return this.getAgentsByApplicationName(applicationName, timestamp, timestamp);
+    public ApplicationAgentHostList getApplicationAgentHostList(int offset, int limit) {
+        if (offset <= 0 || limit <= 0) {
+            throw new IllegalArgumentException("Value must be greater than 0.");
+        }
+
+        List<String> applicationNameList = getApplicationNameList(applicationIndexDao.selectAllApplicationNames());
+        if (offset > applicationNameList.size()) {
+            return new ApplicationAgentHostList(offset, offset, applicationNameList.size());
+        }
+
+        long timeStamp = System.currentTimeMillis();
+
+        int startIndex = offset - 1;
+        int endIndex = Math.min(startIndex + limit, applicationNameList.size());
+        ApplicationAgentHostList applicationAgentHostList = new ApplicationAgentHostList(offset, endIndex, applicationNameList.size());
+        for (int i = startIndex ; i < endIndex; i++) {
+            String applicationName = applicationNameList.get(i);
+
+            List<String> agentIds = this.applicationIndexDao.selectAgentIds(applicationName);
+            List<AgentInfo> agentInfoList = this.agentInfoDao.getAgentInfos(agentIds, timeStamp);
+            applicationAgentHostList.put(applicationName, agentInfoList);
+        }
+        return applicationAgentHostList;
+    }
+
+    private List<String> getApplicationNameList(List<Application> applications) {
+        List<String> applicationNameList = new ArrayList<>(applications.size());
+        for (Application application : applications) {
+            if (!applicationNameList.contains(application.getName())) {
+                applicationNameList.add(application.getName());
+            }
+        }
+
+        Collections.sort(applicationNameList, Ordering.usingToString());
+        return applicationNameList;
     }
 
     @Override
-    public Set<AgentInfo> getAgentsByApplicationName(String applicationName, long timestamp, long timeDiff) {
+    public Set<AgentInfo> getAgentsByApplicationName(String applicationName, long timestamp) {
+        Set<AgentInfo> agentInfos = this.getAgentsByApplicationNameWithoutStatus(applicationName, timestamp);
+        this.agentLifeCycleDao.populateAgentStatuses(agentInfos, timestamp);
+        return agentInfos;
+    }
+
+    @Override
+    public Set<AgentInfo> getAgentsByApplicationNameWithoutStatus(String applicationName, long timestamp) {
         if (applicationName == null) {
             throw new NullPointerException("applicationName must not be null");
         }
+        if (timestamp < 0) {
+            throw new IllegalArgumentException("timestamp must not be less than 0");
+        }
+
+        List<String> agentIds = this.applicationIndexDao.selectAgentIds(applicationName);
+        List<AgentInfo> agentInfos = this.agentInfoDao.getAgentInfos(agentIds, timestamp);
+        CollectionUtils.filter(agentInfos, PredicateUtils.notNullPredicate());
+        if (CollectionUtils.isEmpty(agentInfos)) {
+            return Collections.emptySet();
+        }
+        return new HashSet<>(agentInfos);
+    }
+
+    @Override
+    public Set<AgentInfo> getRecentAgentsByApplicationName(String applicationName, long timestamp, long timeDiff) {
         if (timeDiff > timestamp) {
             throw new IllegalArgumentException("timeDiff must not be greater than timestamp");
         }
 
+        Set<AgentInfo> unfilteredAgentInfos = this.getAgentsByApplicationName(applicationName, timestamp);
+
         final long eventTimestampFloor = timestamp - timeDiff;
 
-        List<String> agentIds = this.applicationIndexDao.selectAgentIds(applicationName);
-        Set<AgentInfo> agentSet = new HashSet<>();
-        for (String agentId : agentIds) {
-            // TODO Temporarily scans for the most recent AgentInfo row starting from range's to value.
-            // (As we do not yet have a way to accurately record the agent's lifecycle.)
-            AgentInfoBo agentInfoBo = this.agentInfoDao.getAgentInfo(agentId, timestamp);
-            if (agentInfoBo != null) {
-                AgentStatus agentStatus = this.getAgentStatus(agentId, timestamp);
-                if (AgentLifeCycleState.UNKNOWN == agentStatus.getState() || eventTimestampFloor <= agentStatus.getEventTimestamp()) {
-                    AgentInfo agentInfo = new AgentInfo(agentInfoBo);
-                    agentInfo.setStatus(agentStatus);
-                    agentSet.add(agentInfo);
-                }
+        Set<AgentInfo> filteredAgentInfos = new HashSet<>();
+        for (AgentInfo agentInfo : unfilteredAgentInfos) {
+            AgentStatus agentStatus = agentInfo.getStatus();
+            if (AgentLifeCycleState.UNKNOWN == agentStatus.getState() || eventTimestampFloor <= agentStatus.getEventTimestamp()) {
+                filteredAgentInfos.add(agentInfo);
             }
         }
-        return agentSet;
+        return filteredAgentInfos;
     }
 
     @Override
@@ -174,12 +217,10 @@ public class AgentInfoServiceImpl implements AgentInfoService {
         if (timestamp < 0) {
             throw new IllegalArgumentException("timestamp must not be less than 0");
         }
-        AgentInfoBo agentInfoBo = this.agentInfoDao.getAgentInfo(agentId, timestamp);
-        if (agentInfoBo == null) {
-            return null;
+        AgentInfo agentInfo = this.agentInfoDao.getAgentInfo(agentId, timestamp);
+        if (agentInfo != null) {
+            this.agentLifeCycleDao.populateAgentStatus(agentInfo, timestamp);
         }
-        AgentInfo agentInfo = new AgentInfo(agentInfoBo);
-        agentInfo.setStatus(this.getAgentStatus(agentId, timestamp));
         return agentInfo;
     }
 
@@ -191,13 +232,6 @@ public class AgentInfoServiceImpl implements AgentInfoService {
         if (timestamp < 0) {
             throw new IllegalArgumentException("timestamp must not be less than 0");
         }
-        AgentLifeCycleBo agentLifeCycleBo = this.agentLifeCycleDao.getAgentLifeCycle(agentId, timestamp);
-        if (agentLifeCycleBo == null) {
-            AgentStatus agentStatus = new AgentStatus(agentId);
-            agentStatus.setState(AgentLifeCycleState.UNKNOWN);
-            return agentStatus;
-        } else {
-            return new AgentStatus(agentLifeCycleBo);
-        }
+        return this.agentLifeCycleDao.getAgentStatus(agentId, timestamp);
     }
 }

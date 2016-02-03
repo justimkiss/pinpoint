@@ -16,6 +16,7 @@
 
 package com.navercorp.pinpoint.web.controller;
 
+import com.navercorp.pinpoint.web.vo.Application;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.navercorp.pinpoint.web.service.AdminService;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author netspider
@@ -65,6 +69,40 @@ public class AdminController {
             logger.error("error while removing agentId", e);
             return e.getMessage();
         }
+    }
+
+    @RequestMapping(value = "/removeInactiveAgents")
+    @ResponseBody
+    public String removeInactiveAgents(@RequestParam(value = "durationDays", defaultValue = "30") int durationDays) {
+        logger.info("removing inactive agents for the last {} days.", durationDays);
+        try {
+            this.adminService.removeInactiveAgents(durationDays);
+            return "OK";
+        } catch (Exception e) {
+            logger.error("error while removing inactive agents for the last " + durationDays + " days.", e);
+            return e.getMessage();
+        }
+    }
+
+    @RequestMapping(value = "/agentIdMap")
+    @ResponseBody
+    public Map<String, List<Application>> agentIdMap() {
+        return this.adminService.getAgentIdMap();
+    }
+
+    @RequestMapping(value = "/duplicateAgentIdMap")
+    @ResponseBody
+    public Map<String, List<Application>> duplicateAgentIdMap() {
+        return this.adminService.getDuplicateAgentIdMap();
+    }
+
+    @RequestMapping(value = "/getInactiveAgents")
+    @ResponseBody
+    public Map<String, List<Application>> getInactiveAgents(
+            @RequestParam(value = "applicationName", required = true) String applicationName,
+            @RequestParam(value = "durationDays", defaultValue = "30") int durationDays) {
+        logger.info("get inactive agents - applicationName: [{}], duration: {} days.", applicationName, durationDays);
+        return this.adminService.getInactiveAgents(applicationName, durationDays);
     }
 
 }

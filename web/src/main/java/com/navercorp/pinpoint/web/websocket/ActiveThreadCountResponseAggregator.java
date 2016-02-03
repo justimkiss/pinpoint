@@ -1,20 +1,17 @@
 /*
+ * Copyright 2015 NAVER Corp.
  *
- *  * Copyright 2014 NAVER Corp.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  *     http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.navercorp.pinpoint.web.websocket;
@@ -27,19 +24,20 @@ import com.navercorp.pinpoint.web.vo.AgentActiveThreadCountList;
 import com.navercorp.pinpoint.web.vo.AgentInfo;
 import com.navercorp.pinpoint.web.vo.AgentStatus;
 import com.navercorp.pinpoint.web.websocket.message.PinpointWebSocketMessageConverter;
-import org.jboss.netty.util.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Timer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @Author Taejin Koo
@@ -51,6 +49,7 @@ public class ActiveThreadCountResponseAggregator implements PinpointWebSocketRes
     private static final String TIME_STAMP = "timeStamp";
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
     private final String applicationName;
     private final AgentService agentService;
     private final Timer timer;
@@ -61,6 +60,9 @@ public class ActiveThreadCountResponseAggregator implements PinpointWebSocketRes
 
     private final Object aggregatorLock = new Object();
     private final PinpointWebSocketMessageConverter messageConverter;
+
+    private final AtomicInteger flushCount = new AtomicInteger(0);
+    private final int flushLogRecordRate = 60;
 
     private volatile boolean isStopped = false;
     private WorkerActiveManager workerActiveManager;
@@ -204,7 +206,14 @@ public class ActiveThreadCountResponseAggregator implements PinpointWebSocketRes
 
     @Override
     public void flush() throws Exception {
-        logger.info("flush started. applicationName:{}", applicationName);
+        flush(null);
+    }
+
+    @Override
+    public void flush(Executor executor) throws Exception {
+        if ((flushCount.getAndIncrement() % flushLogRecordRate) == 0) {
+            logger.info("flush started. applicationName:{}", applicationName);
+        }
 
         if (isStopped) {
             return;
@@ -225,24 +234,45 @@ public class ActiveThreadCountResponseAggregator implements PinpointWebSocketRes
             activeThreadCountMap = new HashMap<>(activeThreadCountWorkerRepository.size());
         }
 
-        flush0(response);
+        TextMessage webSocketTextMessage = createWebSocketTextMessage(response);
+        if (webSocketTextMessage != null) {
+            if (executor == null) {
+                flush0(webSocketTextMessage);
+            } else {
+                flushAsync0(webSocketTextMessage, executor);
+            }
+        }
     }
 
-    private void flush0(AgentActiveThreadCountList activeThreadCountList) {
+    private TextMessage createWebSocketTextMessage(AgentActiveThreadCountList activeThreadCountList) {
         Map resultMap = createResultMap(activeThreadCountList, System.currentTimeMillis());
         try {
             TextMessage responseTextMessage = new TextMessage(messageConverter.getResponseTextMessage(ActiveThreadCountHandler.API_ACTIVE_THREAD_COUNT, resultMap));
-
-            for (WebSocketSession webSocketSession : webSocketSessions) {
-                try {
-                    logger.debug("flush webSocketSession:{}, response:{}", webSocketSession, responseTextMessage);
-                    webSocketSession.sendMessage(responseTextMessage);
-                } catch (IOException e) {
-                    logger.warn(e.getMessage(), e);
-                }
-            }
+            return responseTextMessage;
         } catch (JsonProcessingException e) {
-            logger.warn("json convert failed. original:{}, message:{}.", resultMap, e.getMessage(), e);
+            logger.warn("failed while to convert message. applicationName:{}, original:{}, message:{}.", applicationName, resultMap, e.getMessage(), e);
+        }
+        return null;
+    }
+
+    private void flush0(TextMessage webSocketMessage) {
+        for (WebSocketSession webSocketSession : webSocketSessions) {
+            try {
+                logger.debug("flush webSocketSession:{}, response:{}", webSocketSession, webSocketMessage);
+                webSocketSession.sendMessage(webSocketMessage);
+            } catch (Exception e) {
+                logger.warn("failed while flushing message to webSocket. session:{}, message:{}, error:{}", webSocketSession, webSocketMessage, e.getMessage(), e);
+            }
+        }
+    }
+
+    private void flushAsync0(TextMessage webSocketMessage, Executor executor) {
+        for (WebSocketSession webSocketSession : webSocketSessions) {
+            if (webSocketSession == null) {
+                logger.warn("failed caused webSocketSession is null. applicationName:{}", applicationName);
+                continue;
+            }
+            executor.execute(new OrderedWebSocketFlushRunnable(webSocketSession, webSocketMessage));
         }
     }
 
@@ -262,7 +292,7 @@ public class ActiveThreadCountResponseAggregator implements PinpointWebSocketRes
     }
 
     private String createEmptyResponseMessage(String applicationName, long timeStamp) {
-        StringBuilder emptyJsonMessage = new StringBuilder();
+        StringBuilder emptyJsonMessage = new StringBuilder(32);
         emptyJsonMessage.append("{");
         emptyJsonMessage.append("\"").append(APPLICATION_NAME).append("\"").append(":").append("\"").append(applicationName).append("\"").append(",");
         emptyJsonMessage.append("\"").append(ACTIVE_THREAD_COUNTS).append("\"").append(":").append("{}").append(",");

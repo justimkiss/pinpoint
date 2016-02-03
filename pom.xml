@@ -21,6 +21,16 @@
             <name>Spring Framework Maven Release Repository</name>
             <url>http://maven.springframework.org/release/</url>
         </repository>
+        <repository>
+            <id>spring-maven-release-remote</id>
+            <name>Spring Framework Maven Release Remote Repository</name>
+            <url>http://repo.spring.io/libs-release-remote/</url>
+        </repository>
+        <repository>
+            <id>bintray</id>
+            <name>bintray</name>
+            <url>http://jcenter.bintray.com</url>
+        </repository>
     </repositories>
 
     <pluginRepositories>
@@ -38,6 +48,7 @@
         <module>collector</module>
         <module>commons</module>
         <module>commons-hbase</module>
+        <module>commons-server</module>
         <module>plugins</module>
         <module>profiler</module>
         <module>profiler-optional</module>
@@ -46,6 +57,7 @@
         <module>test</module>
         <module>web</module>
         <module>java8-test</module>
+        <module>hbase</module>
     </modules>
 
     <properties>
@@ -62,6 +74,7 @@
         <jedis.version>2.4.2</jedis.version>
         <cloverLicenseLocation>${basedir}/clover.license</cloverLicenseLocation>
         <spring-batch-version>2.2.7.RELEASE</spring-batch-version>
+        <docker.maven.plugin.version>0.3.8</docker.maven.plugin.version>
     </properties>
 
     <dependencies>
@@ -87,6 +100,11 @@
             <dependency>
                 <groupId>com.navercorp.pinpoint</groupId>
                 <artifactId>pinpoint-commons</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.navercorp.pinpoint</groupId>
+                <artifactId>pinpoint-commons-server</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -371,7 +389,11 @@
                 <artifactId>mybatis-spring</artifactId>
                 <version>1.2.2</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.mariadb.jdbc</groupId>
+                <artifactId>mariadb-java-client</artifactId>
+                <version>1.3.4</version>
+            </dependency>
             <dependency>
                 <groupId>mysql</groupId>
                 <artifactId>mysql-connector-java</artifactId>
@@ -812,6 +834,14 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.spotify</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>${docker.maven.plugin.version}</version>
+                <configuration>
+                    <skipDockerBuild>true</skipDockerBuild>
+                </configuration>
             </plugin>
         </plugins>
     </build>

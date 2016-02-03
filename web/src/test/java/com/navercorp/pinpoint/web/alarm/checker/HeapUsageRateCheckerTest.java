@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -29,8 +30,6 @@ import com.navercorp.pinpoint.common.trace.ServiceType;
 import com.navercorp.pinpoint.web.alarm.CheckerCategory;
 import com.navercorp.pinpoint.web.alarm.DataCollectorFactory;
 import com.navercorp.pinpoint.web.alarm.DataCollectorFactory.DataCollectorCategory;
-import com.navercorp.pinpoint.web.alarm.checker.AgentChecker;
-import com.navercorp.pinpoint.web.alarm.checker.HeapUsageRateChecker;
 import com.navercorp.pinpoint.web.alarm.collector.AgentStatDataCollector;
 import com.navercorp.pinpoint.web.alarm.vo.Rule;
 import com.navercorp.pinpoint.web.dao.AgentStatDao;
@@ -66,6 +65,11 @@ public class HeapUsageRateCheckerTest {
                 
                 return agentStatList;
             }
+
+            @Override
+            public boolean agentStatExists(String agentId, Range range) {
+                return true;
+            }
         };
         
         applicationIndexDao = new ApplicationIndexDao() {
@@ -88,6 +92,11 @@ public class HeapUsageRateCheckerTest {
 
             @Override
             public void deleteApplicationName(String applicationName) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void deleteAgentIds(Map<String, List<String>> applicationAgentIdMap) {
                 throw new UnsupportedOperationException();
             }
 

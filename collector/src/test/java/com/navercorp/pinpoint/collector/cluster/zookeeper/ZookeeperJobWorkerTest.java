@@ -1,21 +1,23 @@
 package com.navercorp.pinpoint.collector.cluster.zookeeper;
 
+import com.navercorp.pinpoint.collector.TestAwaitTaskUtils;
+import com.navercorp.pinpoint.collector.TestAwaitUtils;
 import com.navercorp.pinpoint.collector.cluster.zookeeper.exception.PinpointZookeeperException;
 import com.navercorp.pinpoint.collector.receiver.tcp.AgentHandshakePropertyType;
 import com.navercorp.pinpoint.rpc.server.PinpointServer;
 import org.junit.Assert;
 import org.junit.Test;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
-
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * @Author Taejin Koo
@@ -32,10 +34,13 @@ public class ZookeeperJobWorkerTest {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
+    private final TestAwaitUtils awaitUtils = new TestAwaitUtils(10, 100);
 
     @Test
     public void test1() throws Exception {
         MockZookeeperClient zookeeperClient = new MockZookeeperClient();
+        zookeeperClient.connect();
+
         ZookeeperJobWorker zookeeperWorker = new ZookeeperJobWorker(zookeeperClient, IDENTIFIER);
         zookeeperWorker.start();
 
@@ -46,8 +51,7 @@ public class ZookeeperJobWorkerTest {
                 zookeeperWorker.addPinpointServer(mockServer);
             }
 
-            Thread.sleep(100);
-            Assert.assertEquals(random, getServerData(zookeeperClient).size());
+            waitZookeeperServerData(random, zookeeperClient);
         } finally {
             zookeeperWorker.stop();
         }
@@ -56,6 +60,8 @@ public class ZookeeperJobWorkerTest {
     @Test
     public void test2() throws Exception {
         MockZookeeperClient zookeeperClient = new MockZookeeperClient();
+        zookeeperClient.connect();
+
         ZookeeperJobWorker zookeeperWorker = new ZookeeperJobWorker(zookeeperClient, IDENTIFIER);
         zookeeperWorker.start();
 
@@ -63,14 +69,10 @@ public class ZookeeperJobWorkerTest {
             PinpointServer mockServer = createMockPinpointServer("app", "agent", System.currentTimeMillis());
             zookeeperWorker.addPinpointServer(mockServer);
             zookeeperWorker.addPinpointServer(mockServer);
-
-            Thread.sleep(100);
-            Assert.assertEquals(1, getServerData(zookeeperClient).size());
+            waitZookeeperServerData(1, zookeeperClient);
 
             zookeeperWorker.removePinpointServer(mockServer);
-
-            Thread.sleep(100);
-            Assert.assertEquals(0, getServerData(zookeeperClient).size());
+            waitZookeeperServerData(0, zookeeperClient);
         } finally {
             zookeeperWorker.stop();
         }
@@ -79,24 +81,21 @@ public class ZookeeperJobWorkerTest {
     @Test
     public void test3() throws Exception {
         MockZookeeperClient zookeeperClient = new MockZookeeperClient();
+        zookeeperClient.connect();
+
         ZookeeperJobWorker zookeeperWorker = new ZookeeperJobWorker(zookeeperClient, IDENTIFIER);
         zookeeperWorker.start();
 
         try {
             PinpointServer mockServer = createMockPinpointServer("app", "agent", System.currentTimeMillis());
             zookeeperWorker.addPinpointServer(mockServer);
-
-            Thread.sleep(100);
-            Assert.assertEquals(1, getServerData(zookeeperClient).size());
+            waitZookeeperServerData(1, zookeeperClient);
 
             zookeeperWorker.clear();
-
-            Thread.sleep(100);
-            Assert.assertEquals(0, getServerData(zookeeperClient).size());
+            waitZookeeperServerData(0, zookeeperClient);
 
             zookeeperWorker.addPinpointServer(mockServer);
-            Thread.sleep(100);
-            Assert.assertEquals(1, getServerData(zookeeperClient).size());
+            waitZookeeperServerData(1, zookeeperClient);
         } finally {
             zookeeperWorker.stop();
         }
@@ -105,6 +104,8 @@ public class ZookeeperJobWorkerTest {
     @Test
     public void test4() throws Exception {
         MockZookeeperClient zookeeperClient = new MockZookeeperClient();
+        zookeeperClient.connect();
+
         ZookeeperJobWorker zookeeperWorker = new ZookeeperJobWorker(zookeeperClient, IDENTIFIER);
         zookeeperWorker.start();
 
@@ -115,12 +116,10 @@ public class ZookeeperJobWorkerTest {
             PinpointServer mockServer2 = createMockPinpointServer("app", "agent", System.currentTimeMillis() + 1000);
             zookeeperWorker.addPinpointServer(mockServer2);
 
-            Thread.sleep(100);
+            waitZookeeperServerData(2, zookeeperClient);
+
             zookeeperWorker.removePinpointServer(mockServer1);
-
-            Thread.sleep(100);
-            Assert.assertEquals(1, getServerData(zookeeperClient).size());
-
+            waitZookeeperServerData(1, zookeeperClient);
         } finally {
             zookeeperWorker.stop();
         }
@@ -151,11 +150,32 @@ public class ZookeeperJobWorkerTest {
         return servers;
     }
 
+    private void waitZookeeperServerData(final int expectedServerDataCount, final MockZookeeperClient zookeeperClient) {
+        boolean pass = awaitUtils.await(new TestAwaitTaskUtils() {
+            @Override
+            public boolean checkCompleted() {
+                try {
+                    return expectedServerDataCount == getServerData(zookeeperClient).size();
+                } catch (Exception e) {
+                    logger.warn(e.getMessage(), e);
+                }
+                return false;
+            }
+        });
+
+        Assert.assertTrue(pass);
+    }
+
     class MockZookeeperClient implements ZookeeperClient {
 
         private final byte[] EMPTY_BYTE = new byte[]{};
         private final Map<String, byte[]> contents = new HashMap<>();
         private volatile boolean connected = false;
+
+        @Override
+        public void connect() throws IOException {
+            connected = true;
+        }
 
         @Override
         public synchronized void reconnectWhenSessionExpired() {
@@ -173,8 +193,8 @@ public class ZookeeperJobWorkerTest {
         }
 
         @Override
-        public synchronized String createNode(String znodePath, byte[] data) throws PinpointZookeeperException, InterruptedException {
-            contents.put(znodePath, data);
+        public synchronized String createNode(String zNodePath, byte[] data) throws PinpointZookeeperException, InterruptedException {
+            contents.put(zNodePath, data);
             return "";
         }
 

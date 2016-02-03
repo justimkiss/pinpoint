@@ -36,16 +36,8 @@ public class ApplicationGroupSerializer extends JsonSerializer<ApplicationGroup>
 
         List<Application> applicationList = applicationGroup.getApplicationList();
         for (Application application : applicationList) {
-            writeApplication(jgen, application);
+            jgen.writeObject(application);
         }
         jgen.writeEndArray();
-    }
-
-    private void writeApplication(JsonGenerator jgen, Application application) throws IOException {
-        jgen.writeStartObject();
-        jgen.writeStringField("applicationName", application.getName());
-        jgen.writeStringField("serviceType", application.getServiceType().getDesc());
-        jgen.writeNumberField("code", application.getServiceTypeCode());
-        jgen.writeEndObject();
     }
 }

@@ -23,8 +23,8 @@
 	        this._sReadablePeriod = false;
 	        this._sQueryEndDateTime = false;
 
-	        this._nCallerRange = preferenceService.getDepth();
-	        this._nCalleeRange = preferenceService.getDepth();
+	        this._nCallerRange = preferenceService.getCaller();
+	        this._nCalleeRange = preferenceService.getCallee();
 	        
 	        this._sHint = false;
 	
@@ -205,6 +205,9 @@
 	            self._nQueryStartTime = self._nQueryEndTime - self._nQueryPeriod;
 	            return self;
 	        };
+			this.getPartialURL = function( bAddApplication, bAddFilter) {
+				return (bAddApplication ? self.getApplication() + "/" : "" ) + self.getReadablePeriod() + "/" + self.getQueryEndDateTime() + ( bAddFilter ? ( self.getFilter() ? "/" + self.getFilter() : "" ) : "" );
+			}
 	    };
 	}]);
 })();

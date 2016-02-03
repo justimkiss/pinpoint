@@ -19,12 +19,14 @@ package com.navercorp.pinpoint.web.service;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Set;
 
 import com.navercorp.pinpoint.common.util.AgentEventTypeCategory;
 import com.navercorp.pinpoint.web.vo.DurationalAgentEvent;
+import org.apache.commons.collections.CollectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,12 +54,19 @@ public class AgentEventServiceImpl implements AgentEventService {
     private AgentEventMessageDeserializer agentEventMessageDeserializer;
 
     @Override
-    public List<AgentEvent> getAgentEvents(String agentId, Range range) {
+    public List<AgentEvent> getAgentEvents(String agentId, Range range, int... excludeEventTypeCodes) {
         if (agentId == null) {
             throw new NullPointerException("agentId must not be null");
         }
         final boolean includeEventMessage = false;
-        List<AgentEventBo> agentEventBos = this.agentEventDao.getAgentEvents(agentId, range);
+        Set<AgentEventType> excludeEventTypes = EnumSet.noneOf(AgentEventType.class);
+        for (int excludeEventTypeCode : excludeEventTypeCodes) {
+            AgentEventType excludeEventType = AgentEventType.getTypeByCode(excludeEventTypeCode);
+            if (excludeEventType != null) {
+                excludeEventTypes.add(excludeEventType);
+            }
+        }
+        List<AgentEventBo> agentEventBos = this.agentEventDao.getAgentEvents(agentId, range, excludeEventTypes);
         List<AgentEvent> agentEvents = createAgentEvents(agentEventBos, includeEventMessage);
         Collections.sort(agentEvents, AgentEvent.EVENT_TIMESTAMP_ASC_COMPARATOR);
         return agentEvents;
@@ -84,6 +93,9 @@ public class AgentEventServiceImpl implements AgentEventService {
     }
 
     private List<AgentEvent> createAgentEvents(List<AgentEventBo> agentEventBos, boolean includeEventMessage) {
+        if (CollectionUtils.isEmpty(agentEventBos)) {
+            return Collections.emptyList();
+        }
         List<AgentEvent> agentEvents = new ArrayList<>(agentEventBos.size());
         PriorityQueue<DurationalAgentEvent> durationalAgentEvents = new PriorityQueue<>(agentEventBos.size(), AgentEvent.EVENT_TIMESTAMP_ASC_COMPARATOR);
         for (AgentEventBo agentEventBo : agentEventBos) {
@@ -96,6 +108,9 @@ public class AgentEventServiceImpl implements AgentEventService {
         long durationStartTimestamp = DurationalAgentEvent.UNKNOWN_TIMESTAMP;
         while (!durationalAgentEvents.isEmpty()) {
             DurationalAgentEvent currentEvent = durationalAgentEvents.remove();
+            if (durationStartTimestamp == DurationalAgentEvent.UNKNOWN_TIMESTAMP) {
+                durationStartTimestamp = currentEvent.getEventTimestamp();
+            }
             currentEvent.setDurationStartTimestamp(durationStartTimestamp);
             DurationalAgentEvent nextEvent = durationalAgentEvents.peek();
             if (nextEvent != null) {

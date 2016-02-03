@@ -354,7 +354,7 @@
 	                        sLastSelection = 'node';
 	                        htLastNode = node;
 	                        scope.$emit("serverMapDirective.nodeClicked", e, htLastQuery, node, htLastMergedMapData, searchQuery);
-							if ( scope.oNavbarVoService !== null ) {
+							if ( scope.oNavbarVoService ) {
 								$rootScope.$broadcast("realtimeChartController.initialize", node.isWas, node.applicationName, scope.oNavbarVoService.getApplication() + "/" + scope.oNavbarVoService.getReadablePeriod() + "/" + scope.oNavbarVoService.getQueryEndDateTime() + "/" + scope.oNavbarVoService.getCallerRange());
 							}
 	                        reset();
@@ -363,16 +363,15 @@
 	                    	e.diagram.zoomToRect( node.actualBounds, 1.2);
 	                    };
 	                    options.fOnNodeContextClicked = function (e, node) {
-	                    	console.log("node context click : ", node );
 	                        reset();
 	                        var originalNode = ServerMapDaoService.getNodeDataByKey(htLastMapData.applicationMapData, node.key);
 	                        if (originalNode) {
 	                            node = originalNode;
 	                        }
 	                        htLastNode = node;
-//	                        if (!bUseNodeContextMenu) {
-//	                            return;
-//	                        }
+	                        if (!bUseNodeContextMenu) {
+	                            return;
+	                        }
 	                        if (node.isWas === true) {
 								setNodeContextMenuPosition(e.event.layerY, e.event.layerX, node.applicationName, node.category);
 	                        }
@@ -759,15 +758,17 @@
 	                /**
 	                 * scope event on serverMapDirective.initializeWithMapData
 	                 */
-	                scope.$on('serverMapDirective.initializeWithMapData', function (event, mapData) {
+	                scope.$on('serverMapDirective.initializeWithMapData', function (event, bAllowNodeContextClick, mapData, navbarVoService) {
 	                    reset();
 	                    scope.bShowServerMapStatus = false;
 	                    bUseBackgroundContextMenu = true;
-	                    bUseNodeContextMenu = bUseLinkContextMenu = false;
+						bUseNodeContextMenu = bAllowNodeContextClick;
+	                    bUseLinkContextMenu = false;
 	                    htLastQuery = {
 	                        applicationName: mapData.applicationId
 	                    };
 	                    htLastMapData = mapData;
+						scope.oNavbarVoService = navbarVoService;
 	                    serverMapCallback(htLastQuery, ServerMapDaoService.extractDataFromApplicationMapData(htLastMapData.applicationMapData), scope.linkRouting, scope.linkCurve);
 	                });
 	

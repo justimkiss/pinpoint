@@ -44,7 +44,7 @@ pinpointApp.config(['$routeProvider', '$locationProvider', '$modalProvider', fun
     }).when('/transactionView/:agentId/:traceId/:focusTimestamp', {
         templateUrl: 'pages/transactionView/transactionView.html',
         controller: 'TransactionViewCtrl'
-    }).when('/scatterFullScreenMode/:application/:readablePeriod/:queryEndDateTime', {
+    }).when('/scatterFullScreenMode/:application/:readablePeriod/:queryEndDateTime/:agentList', {
         templateUrl: 'pages/scatterFullScreenMode/scatterFullScreenMode.html',
         controller: 'ScatterFullScreenModeCtrl'
     }).when('/scatterFullScreenMode/:application/:readablePeriod/:queryEndDateTime/:filter', {
@@ -62,8 +62,11 @@ pinpointApp.config(['$routeProvider', '$locationProvider', '$modalProvider', fun
 //    $sceProvider.enabled(false);
 }]);
 
+pinpointApp.value("responseTypeColor", [ "#2ca02c", "#3c81fa", "#f8c731", "#f69124", "#f53034" ]);
 pinpointApp.value("globalConfig", {});
-
+pinpointApp.value("CONST_SET", {
+	AGENT_ALL: "All"
+});
 pinpointApp.run([ '$rootScope', '$window', '$timeout', '$modal', '$location', '$route', '$cookies', '$interval', '$http', 'globalConfig',
     function ($rootScope, $window, $timeout, $modal, $location, $route, $cookies, $interval, $http, globalConfig) {
         var original = $location.path;
