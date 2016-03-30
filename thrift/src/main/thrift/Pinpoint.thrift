@@ -1,5 +1,13 @@
 namespace java com.navercorp.pinpoint.thrift.dto
 
+enum TJvmGcType {
+    UNKNOWN,
+    SERIAL,
+    PARALLEL,
+    CMS,
+    G1
+}
+
 struct TServiceInfo {
     1: optional string          serviceName
     2: optional list<string>    serviceLibs
@@ -9,6 +17,12 @@ struct TServerMetaData {
     1: optional string              serverInfo
     2: optional list<string>        vmArgs
     10: optional list<TServiceInfo>  serviceInfos
+}
+
+struct TJvmInfo {
+    1:          i16         version = 0
+    2: optional string      vmVersion
+    3: optional TJvmGcType  gcType = TJvmGcType.UNKNOWN
 }
 
 struct TAgentInfo {
@@ -28,14 +42,8 @@ struct TAgentInfo {
 	12: optional i32     endStatus
 	
 	20: optional TServerMetaData   serverMetaData
-}
 
-enum TJvmGcType {
-    UNKNOWN,
-    SERIAL,
-    PARALLEL,
-    CMS,
-    G1    
+	30: optional TJvmInfo   jvmInfo
 }
 
 struct TJvmGc {
@@ -73,6 +81,16 @@ struct TTransaction {
     5: optional i64     unsampledContinuationCount
 }
 
+struct TActiveTraceHistogram {
+    1:          i16         version = 0
+	2: optional i32         histogramSchemaType
+	3: optional list<i32>   activeTraceCount
+}
+
+struct TActiveTrace {
+	1: optional TActiveTraceHistogram   histogram
+}
+
 struct TAgentStat {
     1: optional string      agentId
     2: optional i64         startTimestamp
@@ -81,6 +99,7 @@ struct TAgentStat {
     10: optional TJvmGc     gc
     20: optional TCpuLoad   cpuLoad
     30: optional TTransaction   transaction
+    40: optional TActiveTrace   activeTrace
     200: optional string    metadata    
 }
 

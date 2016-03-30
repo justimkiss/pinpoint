@@ -9,13 +9,7 @@
 	 */
 	pinpointApp.constant('TransactionListConfig', {
 	    applicationUrl: '/transactionmetadata.pinpoint',
-	    MAX_FETCH_BLOCK_SIZE: 100,
-	    transactionIndex: {
-	        x: 0,
-	        y: 1,
-	        transactionId: 2,
-	        type: 3
-	    }
+	    MAX_FETCH_BLOCK_SIZE: 100
 	});
 	
 	pinpointApp.controller('TransactionListCtrl', ['TransactionListConfig', '$scope', '$location', '$routeParams', '$rootScope', '$timeout', '$window', '$http', 'webStorage', 'TimeSliderVoService', 'TransactionDaoService', 'AnalyticsService', 'helpContentService',
@@ -92,16 +86,25 @@
 			};
 
 			hasParent = function() {
-				return !($window.opener == null);
+				return angular.isDefined( $window.opener );
 			};
 			hasValidParam = function() {
-				if ( $window.opener == null ) return false;
+				if ( angular.isUndefined( $window.opener ) || $window.opener === null ) return false;
 				var $parentParams = $window.opener.$routeParams;
-				return angular.isDefined($routeParams) &&
-						angular.isDefined($parentParams) &&
-						angular.equals($routeParams.application, $parentParams.application) &&
-						angular.equals($routeParams.readablePeriod, $parentParams.readablePeriod) &&
-						angular.equals($routeParams.queryEndDateTime, $parentParams.queryEndDateTime);
+				if ( angular.isDefined($routeParams) && angular.isDefined($parentParams) ) {
+					if ( $parentParams.readablePeriod === "realtime" ) {
+						if ( angular.equals($routeParams.application, $parentParams.application ) ) {
+							return true;
+						}
+					} else {
+						if ( angular.equals($routeParams.application, $parentParams.application) &&
+							angular.equals($routeParams.readablePeriod, $parentParams.readablePeriod) &&
+							angular.equals($routeParams.queryEndDateTime, $parentParams.queryEndDateTime) ) {
+							return true;
+						}
+					}
+				}
+				return false;
 			};
 
 	        /**
@@ -111,13 +114,22 @@
 	         */
 			getTransactionInfoFromWindow = function (windowName) {
 	            var t = windowName.split('|');
-	            return {
-	                applicationName: t[0],
-	                nXFrom: t[1],
-	                nXTo: t[2],
-	                nYFrom: t[3],
-	                nYTo: t[4]
-	            };
+				if (t.length === 4 ) {
+					return {
+						applicationName: t[0],
+						type: t[1],
+						min: t[2],
+						max: t[3]
+					};
+				} else {
+					return {
+						applicationName: t[0],
+						nXFrom: t[1],
+						nXTo: t[2],
+						nYFrom: t[3],
+						nYTo: t[4]
+					};
+				}
 	        };
 			getTransactionInfoFromURL = function() {
 				return {
@@ -145,7 +157,12 @@
 	         */
 	        getDataByTransactionInfo = function (t) {
 	            var oScatter = $window.opener.htoScatter[t.applicationName];
-	            return oScatter.getDataByXY(t.nXFrom, t.nXTo, t.nYFrom, t.nYTo);
+				if ( t.type ) {
+					return oScatter.getDataByRange( t.type, t.min, t.max );
+				} else {
+					return oScatter.getDataByXY( t.nXFrom, t.nXTo, t.nYFrom, t.nYTo );
+				}
+
 	        };
 	
 	        /**
@@ -162,7 +179,7 @@
 	         */
 	        getQuery = function () {
 	            if (!htTransactionData) {
-	                $window.alert("Query failed - Query parameter cache deleted.\n\nPossibly due to scatter chart being refreshed.")
+	                $window.alert("Query failed - Query parameter cache deleted.\n\nPossibly due to scatter chart being refreshed.");
 	                return false;
 	            }
 	            var query = [];
@@ -170,9 +187,9 @@
 	                if (i > 0) {
 	                    query.push("&");
 	                }
-	                query = query.concat(["I", j, "=", htTransactionData[i][cfg.transactionIndex.transactionId]]);
-	                query = query.concat(["&T", j, "=", htTransactionData[i][cfg.transactionIndex.x]]);
-	                query = query.concat(["&R", j, "=", htTransactionData[i][cfg.transactionIndex.y]]);
+	                query = query.concat(["I", j, "=", htTransactionData[i][0]]);
+	                query = query.concat(["&T", j, "=", htTransactionData[i][1]]);
+	                query = query.concat(["&R", j, "=", htTransactionData[i][2]]);
 	                nLastFetchedIndex++;
 	            }
 	            nFetchCount++;

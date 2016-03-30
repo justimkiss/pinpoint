@@ -18,10 +18,9 @@ package com.navercorp.pinpoint.web.vo;
 
 import java.util.Comparator;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.navercorp.pinpoint.common.bo.AgentInfoBo;
+import com.navercorp.pinpoint.common.bo.JvmInfoBo;
 import com.navercorp.pinpoint.common.bo.ServerMetaDataBo;
 import com.navercorp.pinpoint.web.view.AgentInfoSerializer;
 
@@ -51,6 +50,7 @@ public class AgentInfo {
     private String vmVersion;
     private String agentVersion;
     private ServerMetaDataBo serverMetaData;
+    private JvmInfoBo jvmInfo;
     private long initialStartTimestamp;
     private AgentStatus status;
 
@@ -69,6 +69,7 @@ public class AgentInfo {
         this.vmVersion = agentInfoBo.getVmVersion();
         this.agentVersion = agentInfoBo.getAgentVersion();
         this.serverMetaData = agentInfoBo.getServerMetaData();
+        this.jvmInfo = agentInfoBo.getJvmInfo();
     }
 
     public String getApplicationName() {
@@ -159,6 +160,14 @@ public class AgentInfo {
         this.serverMetaData = serverMetaData;
     }
 
+    public JvmInfoBo getJvmInfo() {
+        return jvmInfo;
+    }
+
+    public void setJvmInfo(JvmInfoBo jvmInfo) {
+        this.jvmInfo = jvmInfo;
+    }
+
     public long getInitialStartTimestamp() {
         return initialStartTimestamp;
     }
@@ -199,7 +208,7 @@ public class AgentInfo {
         return "AgentInfo [applicationName=" + applicationName + ", agentId=" + agentId + ", startTimestamp="
                 + startTimestamp + ", hostName=" + hostName + ", ip=" + ip + ", ports=" + ports + ", serviceTypeCode="
                 + serviceTypeCode + ", pid=" + pid + ", vmVersion=" + vmVersion + ", agentVersion=" + agentVersion
-                + ", serverMetaData=" + serverMetaData + ", initialStartTimestamp=" + initialStartTimestamp
+                + ", serverMetaData=" + serverMetaData + ", jvmInfo=" + jvmInfo + ", initialStartTimestamp=" + initialStartTimestamp
                 + ", status=" + status + "]";
     }
 

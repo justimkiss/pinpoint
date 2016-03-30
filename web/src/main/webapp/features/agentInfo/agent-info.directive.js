@@ -11,8 +11,8 @@
 	    agentStatUrl: '/getAgentStat.pinpoint'
 	});
 	
-	pinpointApp.directive('agentInfoDirective', [ 'agentInfoConfig', '$timeout', 'AlertsService', 'ProgressBarService', 'AgentDaoService', 'AgentAjaxService', 'TooltipService',
-	    function ( cfg, $timeout, AlertsService, ProgressBarService, AgentDaoService, agentAjaxService, tooltipService ) {
+	pinpointApp.directive('agentInfoDirective', [ 'agentInfoConfig', '$timeout', 'AlertsService', 'ProgressBarService', 'AgentDaoService', 'AgentAjaxService', 'TooltipService', "AnalyticsService", 'helpContentService',
+	    function ( cfg, $timeout, AlertsService, ProgressBarService, AgentDaoService, agentAjaxService, tooltipService, analyticsService, helpContentService ) {
 	        return {
 	            restrict: 'EA',
 	            replace: true,
@@ -56,7 +56,7 @@
 							timeSlider.emptyData();
 						} else {
 							timeSlider = new TimeSlider( "timeSlider", {
-								"width": $("#timeSlider").width(),
+								"width": $("#timeSlider").get(0).getBoundingClientRect().width,
 								"height": 90,
 								"handleSrc": "images/handle.png",
 								"timeSeries": aFromTo ? aFromTo : calcuSliderTimeSeries( aSelectionFromTo ),
@@ -171,7 +171,7 @@
 	                        }
 	                    }
 	                    return;
-	                }
+	                };
 
 	                /**
 	                 * show charts
@@ -228,6 +228,19 @@
 	                        scope.$broadcast('tpsChartDirective.showCursorAt.forTps', event.index);
 	                    }
 	                };
+					scope.toggleHelp = function() {
+						$("._wrongApp").popover({
+							"title": "<span class='label label-info'>" + oNavbarVoService.getApplicationName() + "</span> <span class='glyphicon glyphicon-resize-horizontal'></span> <span class='label label-info'>" + scope.agent.applicationName + "</span>",
+							"content": helpContentService.inspector.wrongApp
+								.replace(/\{\{application1\}\}/g, oNavbarVoService.getApplicationName() )
+								.replace(/\{\{application2\}\}/g, scope.agent.applicationName )
+								.replace(/\{\{agentId\}\}/g, scope.agent.agentId ),
+							"html": true
+						}).popover("toggle");
+					};
+					scope.isSameApplication = function() {
+						return scope.agent.applicationName === oNavbarVoService.getApplicationName();
+					};
 
 					scope.formatDate = function( time ) {
 						return moment(time).format('YYYY.MM.DD HH:mm:ss');
@@ -245,6 +258,7 @@
 					};
 
 					scope.toggleShowDetail = function() {
+						analyticsService.send( analyticsService.CONST.INSPECTOR, analyticsService.CONST.CLK_SHOW_SERVER_TYPE_DETAIL );
 						scope.showDetail = !scope.showDetail;
 					};
 	                scope.hasDuplicate = function( libName, index ) {

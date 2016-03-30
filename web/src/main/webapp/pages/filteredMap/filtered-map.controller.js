@@ -73,11 +73,11 @@
 	
 	        /**
 	         * broadcast scatter scan result to scatter
-	         * @param applicationScatterScanResult
+	         * @param applicationScatterData
 	         */
-	        broadcastScatterScanResultToScatter = function (applicationScatterScanResult) {
-	            if (angular.isDefined(applicationScatterScanResult)) {
-	                angular.forEach(applicationScatterScanResult, function (val, key) {
+	        broadcastScatterScanResultToScatter = function (applicationScatterData) {
+	            if (angular.isDefined(applicationScatterData)) {
+	                angular.forEach(applicationScatterData, function (val, key) {
 	                    $scope.$broadcast('scatterDirective.initializeWithData', key, val);
 	                });
 	            }
@@ -131,7 +131,7 @@
 	            reloadOnlyForNode = true;
 	            reloadOnlyForLink = true;
 	            $scope.$broadcast('timeSliderDirective.setInnerFromTo', oTimeSliderVoService);
-	            broadcastScatterScanResultToScatter(mapData.applicationScatterScanResult);
+	            broadcastScatterScanResultToScatter(mapData.applicationScatterData);
 	
 	            // auto trying fetch
 	            if (mapData.applicationMapData.nodeDataArray.length === 0 && mapData.applicationMapData.linkDataArray.length === 0) {
@@ -154,7 +154,7 @@
 	            $scope.$broadcast('timeSliderDirective.changeMoreToDone');
 	            $scope.$broadcast('timeSliderDirective.disableMore');
 	
-	            broadcastScatterScanResultToScatter(mapData.applicationScatterScanResult);
+	            broadcastScatterScanResultToScatter(mapData.applicationScatterData);
 	        });
 	
 	        /**
@@ -184,7 +184,7 @@
 	         */
 	        $scope.$on('serverMapDirective.nodeClicked', function (event, e, query, node, data) {
 	            bNodeSelected = true;
-	            var oSidebarTitleVoService = new SidebarTitleVoService;
+	            var oSidebarTitleVoService = new SidebarTitleVoService();
 	            oSidebarTitleVoService.setImageType(node.serviceType);
 	
 	            if (node.isWas === true) {
@@ -199,7 +199,7 @@
 	                $scope.hasScatter = false;
 	            }
 	            $scope.hasFilter = false;
-	            $scope.$broadcast('sidebarTitleDirective.initialize.forFilteredMap', oSidebarTitleVoService);
+	            $scope.$broadcast('sidebarTitleDirective.initialize.forFilteredMap', oSidebarTitleVoService, node);
 	            $scope.$broadcast('nodeInfoDetailsDirective.initialize', e, query, node, data, oNavbarVoService, reloadOnlyForNode);
 	            $scope.$broadcast('linkInfoDetailsDirective.hide', e, query, node, data, oNavbarVoService);
 	            reloadOnlyForNode = false;
@@ -210,7 +210,7 @@
 	         */
 	        $scope.$on('serverMapDirective.linkClicked', function (event, e, query, link, data) {
 	            bNodeSelected = false;
-	            var oSidebarTitleVoService = new SidebarTitleVoService;
+	            var oSidebarTitleVoService = new SidebarTitleVoService();
 	            if (link.unknownLinkGroup) {
 	                oSidebarTitleVoService
 	                    .setImageType(link.sourceInfo.serviceType)
@@ -276,7 +276,7 @@
 	         */
 	        $scope.$on('linkInfoDetail.showDetailInformationClicked', function (event, query, link) {
 	            $scope.hasScatter = false;
-	            var oSidebarTitleVoService = new SidebarTitleVoService;
+	            var oSidebarTitleVoService = new SidebarTitleVoService();
 	            oSidebarTitleVoService
 	                .setImageType(link.sourceInfo.serviceType)
 	                .setTitle(link.sourceInfo.applicationName)
@@ -291,11 +291,11 @@
 	         */
 	        $scope.$on('nodeInfoDetail.showDetailInformationClicked', function (event, query, node) {
 	            $scope.hasScatter = false;
-	            var oSidebarTitleVoService = new SidebarTitleVoService;
+	            var oSidebarTitleVoService = new SidebarTitleVoService();
 	            oSidebarTitleVoService
 	                .setImageType(node.serviceType)
 	                .setTitle(node.applicationName);
-	            $scope.$broadcast('sidebarTitleDirective.initialize.forMain', oSidebarTitleVoService);
+	            $scope.$broadcast('sidebarTitleDirective.initialize.forMain', oSidebarTitleVoService, node);
 	            $scope.$broadcast('linkInfoDetailsDirective.hide');
 	        });
 	    }

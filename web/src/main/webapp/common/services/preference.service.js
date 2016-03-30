@@ -15,8 +15,8 @@
 			favorite: "preference.favorite"
 		},
 		defaults: {
-			caller: 1,
 			callee: 1,
+			caller: 1,
 			period: "5m"
 		},
 		list: [{
@@ -30,14 +30,18 @@
 			type: "string"
 		}],
 		cst: {
-			periodTypes: ['5m', '20m', '1h', '3h', '6h', '12h', '1d', '2d'],
+			periodTypes: [ '5m', '20m', '1h', '3h', '6h', '12h', '1d', '2d'],
 			depthList: [ 1, 2, 3, 4],
 			maxFavorite: 5000,
-			maxPeriod: 2
+			maxPeriod: 2,
+			realtimeScatterPeriod: 5 * 60 * 1000,//5m
+			responseType: [ "1s", "3s", "5s", "Slow", "Error" ],
+			responseTypeColor: [ "#2ca02c", "#3c81fa", "#f8c731", "#f69124", "#f53034" ],
+			agentAllStr: "All"
 		}
 	});
 	
-	pinpointApp.service('PreferenceService', [ 'PreferenceServiceConfig', function(cfg) {
+	pinpointApp.service( "PreferenceService", [ "PreferenceServiceConfig", "webStorage", function( cfg, webStorage ) {
 		var self = this;
 		var oDefault = {};
 		var aFavoriteList = [];
@@ -72,6 +76,39 @@
 		this.getMaxPeriod = function() {
 			return cfg.cst.maxPeriod;
 		};
+		this.getRealtimeScatterXRange = function() {
+			return cfg.cst.realtimeScatterPeriod;
+		};
+		this.getRealtimeScatterXRangeStr = function() {
+			return (cfg.cst.realtimeScatterPeriod / 1000 / 60) + "m";
+		};
+		this.getResponseTypeColor = function() {
+			return cfg.cst.responseTypeColor;
+		};
+		this.getAgentAllStr = function() {
+			return cfg.cst.agentAllStr;
+		};
+		this.getResponseTypeFormat = function() {
+			var o = {};
+			jQuery.each( cfg.cst.responseType, function( index, value ) {
+				o[value] = 0;
+			});
+			return o;
+		};
+		this.getCalleeFromStorage = function(app) {
+			if ( angular.isUndefined( app ) ) {
+				return this.getCallee();
+			} else {
+				return webStorage.get( app + "+callee" ) || this.getCallee();
+			}
+		};
+		this.getCallerFromStorage = function(app) {
+			if ( angular.isUndefined( app ) ) {
+				return this.getCaller();
+			} else {
+				return webStorage.get(app + "+caller") || this.getCaller();
+			}
+		};
 		
 		
 		function loadPreference() {
@@ -95,7 +132,7 @@
 				};
 			});
 			aFavoriteList = JSON.parse( localStorage.getItem(cfg.names.favorite) || "[]");
-		};
+		}
 		
 	}]);
 })();

@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.navercorp.pinpoint.common.service.ServiceTypeRegistryService;
 import com.navercorp.pinpoint.common.trace.ServiceType;
-import com.navercorp.pinpoint.common.util.AgentLifeCycleState;
 import com.navercorp.pinpoint.web.applicationmap.link.LinkInfo;
 import com.navercorp.pinpoint.web.applicationmap.link.MatcherGroup;
 import com.navercorp.pinpoint.web.vo.AgentInfo;
@@ -59,6 +58,7 @@ public class AgentInfoSerializer extends JsonSerializer<AgentInfo> {
         jgen.writeStringField("vmVersion", agentInfo.getVmVersion());
         jgen.writeStringField("agentVersion", agentInfo.getAgentVersion());
         jgen.writeObjectField("serverMetaData", agentInfo.getServerMetaData());
+        jgen.writeObjectField("jvmInfo", agentInfo.getJvmInfo());
 
         AgentStatus status = agentInfo.getStatus();
         if (status != null) {

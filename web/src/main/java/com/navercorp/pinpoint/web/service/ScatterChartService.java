@@ -18,6 +18,7 @@ package com.navercorp.pinpoint.web.service;
 
 import com.navercorp.pinpoint.common.bo.SpanBo;
 import com.navercorp.pinpoint.web.filter.Filter;
+import com.navercorp.pinpoint.web.scatter.ScatterData;
 import com.navercorp.pinpoint.web.vo.Range;
 import com.navercorp.pinpoint.web.vo.SelectedScatterArea;
 import com.navercorp.pinpoint.web.vo.TransactionId;
@@ -40,16 +41,6 @@ public interface ScatterChartService {
     List<Dot> selectScatterData(Collection<TransactionId> traceIds, String applicationName, Filter filter);
 
     /**
-     * Queries for data using time range.
-     *
-     * @param applicationName
-     * @param range
-     * @param limit
-     * @return
-     */
-    List<Dot> selectScatterData(String applicationName, Range range, int limit);
-
-    /**
      * @param applicationName
      * @param area
      * @param offsetTransactionId
@@ -70,4 +61,9 @@ public interface ScatterChartService {
      */
 //  List<TransactionId> selectScatterTraceIdList(String applicationName, long from, long to, int limit);
     List<SpanBo> selectTransactionMetadata(TransactionMetadataQuery query);
+
+    ScatterData selectScatterData(String applicationName, Range range, int xGroupUnit, int yGroupUnit, int limit, boolean backwardDirection);
+
+    ScatterData selectScatterData(Collection<TransactionId> transactionIdList, String applicationName, Range range, int xGroupUnit, int yGroupUnit, Filter filter);
+
 }

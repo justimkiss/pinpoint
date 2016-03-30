@@ -7,7 +7,8 @@
 	 * @name serverListDirective
 	 * @class
 	 */
-	pinpointApp.directive('serverListDirective', [ '$timeout', '$window', '$filter', 'helpContentTemplate', 'helpContentService', function ($timeout, $window, $filter, helpContentTemplate, helpContentService) {
+	pinpointApp.directive( "serverListDirective", [ "$timeout", "$window", "$filter", "AnalyticsService", "TooltipService",
+		function ( $timeout, $window, $filter, analyticsService, tooltipService ) {
             return {
                 restrict: 'A',
                 link: function postLink(scope, element) {
@@ -52,7 +53,7 @@
                 			a.push( p );
                 		}
                 		return a.sort()[0];
-                	}
+                	};
                 	
                 	var showChart = function( histogram, timeSeriesHistogram ) {
                 		if ( bInitialized ) {
@@ -63,7 +64,7 @@
                     		scope.$broadcast('loadChartDirective.initAndRenderWithData.forServerList', timeSeriesHistogram, '360px', '200px', false, true);
                 		}
                 		
-                	}
+                	};
                 	scope.showNodeServer = false;
                 	scope.showLinkServer = false;
                 	scope.selectServer = function( instanceName ) {
@@ -73,6 +74,10 @@
                     		showChart( scope.node.sourceHistogram[instanceName], scope.node.sourceTimeSeriesHistogram[instanceName] );
                 		}
                 	};
+					scope.openInspector = function( node, instance ) {
+						analyticsService.send( analyticsService.CONST.MAIN, analyticsService.CONST.CLK_OPEN_INSPECTOR );
+						$window.open("#/inspector/" + node.applicationName + "@" + node.serviceType + "/" + scope.oNavbarVoService.getReadablePeriod() + "/" + scope.oNavbarVoService.getQueryEndDateTime() + "/" + instance.name );
+					};
                 	
                     scope.$on('serverListDirective.show', function ( event, bIsNodeServerList, node, oNavbarVoService ) {
                     	bIsNode = bIsNodeServerList;
@@ -106,13 +111,7 @@
                 		bInitialized = true;
                     });
 
-                    $element.find('.serverListTooltip').tooltipster({
-                    	content: function() {
-                    		return helpContentTemplate(helpContentService.nodeInfoDetails.nodeServers);
-                    	},
-                    	position: "bottom",
-                    	trigger: "click"
-                    });	
+					tooltipService.init( "serverList" );
                 }
             };
 	    }

@@ -51,8 +51,8 @@
 		}
 	});
 	
-	pinpointApp.controller('RealtimeChartCtrl', ['RealtimeChartCtrlConfig', '$scope', '$element', '$rootScope', '$compile', '$window', 'globalConfig', 'RealtimeWebsocketService', '$location', 'AnalyticsService', 'helpContentTemplate', 'helpContentService',
-	    function (cfg, $scope, $element, $rootScope, $compile, $window, globalConfig, websocketService, $location, analyticsService, helpContentTemplate, helpContentService) {
+	pinpointApp.controller( "RealtimeChartCtrl", [ "RealtimeChartCtrlConfig", "$scope", "$element", "$rootScope", "$compile", "$timeout", "$window", "globalConfig", "$location", "RealtimeWebsocketService", "AnalyticsService", "TooltipService",
+	    function (cfg, $scope, $element, $rootScope, $compile, $timeout, $window, globalConfig, $location, websocketService, analyticsService, tooltipService) {
 			
 	    	$element = $($element);
 			//@TODO will move to preference-service 
@@ -89,14 +89,9 @@
 		    	o[cfg.keys.PARAMETERS] = {};
 		    	return o;
 	    	})();
-	    	
-	    	jQuery('.realtimeTooltip').tooltipster({
-            	content: function() {
-            		return helpContentTemplate(helpContentService.realtime["default"]);
-            	},
-            	position: "top",
-            	trigger: "click"
-            });
+			var timeoutResult = null;
+
+			tooltipService.init( "realtime" );
 
 	    	$scope.sumChartColor 	= ["rgba(44, 160, 44, 1)", 	"rgba(60, 129, 250, 1)", 	"rgba(248, 199, 49, 1)", 	"rgba(246, 145, 36, 1)" ];
 	    	$scope.agentChartColor 	= ["rgba(44, 160, 44, .8)", "rgba(60, 129, 250, .8)", 	"rgba(248, 199, 49, .8)", 	"rgba(246, 145, 36, .8)"];
@@ -109,14 +104,18 @@
 			$(document).on("visibilitychange", function() {
 				switch ( document.visibilityState ) {
 					case "hidden":
-						websocketService.close();
-						//stopReceive();
-						//stopChart();
+						timeoutResult = $timeout(function() {
+							websocketService.close();
+							timeoutResult = null;
+						}, 60000);
 						break;
 					case "visible":
-						$scope.retryConnection();
-						//waitingConnection();
-						//initReceive();
+						if ( timeoutResult !== null ) {
+							$timeout.cancel( timeoutResult );
+						} else {
+							$scope.retryConnection();
+						}
+						timeoutResult = null;
 						break;
 				}
 			});
@@ -231,7 +230,7 @@
 	        	return JSON.stringify(wsMessageTemplate);
 	        }
 	        function checkAgentChart( agentName, agentIndexAndCount ) {
-	        	if ( hasAgentChart( agentName ) == false ) {
+	        	if ( hasAgentChart( agentName ) === false ) {
         			if ( hasNotUseChart( agentIndexAndCount ) ) {
         				linkNamespaceToIndex(agentName, agentIndexAndCount);
         			} else {
@@ -280,7 +279,7 @@
 	        	websocketService.send( makeRequest( currentApplicationName) );
 	        }
 	        function initReceive() {
-	        	if ( websocketService.isOpened() == false ) {
+	        	if ( websocketService.isOpened() === false ) {
 	        		initSend();
 	        	} else {
 	        		startReceive();
@@ -332,16 +331,16 @@
 	        function setPinColor() {
 	        	$elPin.css("color", bIsPinned ? "red": "");
 	        }
-	        $scope.$on('realtimeChartController.close', function () {
+	        $scope.$on( "realtimeChartController.close", function () {
 	        	hidePopup();
 	        	var prevShowRealtimeChart = bShowRealtimeChart;
 	        	$scope.closePopup();
 	        	bShowRealtimeChart = prevShowRealtimeChart;
 	        	setPinColor();
 	        });
-	        $scope.$on('realtimeChartController.initialize', function (event, was, applicationName, urlParam ) {
+	        $scope.$on( "realtimeChartController.initialize", function (event, was, applicationName, urlParam ) {
 	        	if ( bIsPinned === true && preUrlParam === urlParam ) return;
-	        	if ( /^\/main/.test( $location.path() ) == false ) return;
+	        	if ( /^\/main/.test( $location.path() ) === false ) return;
 	        	bIsWas = angular.isUndefined( was ) ? false : was;
 	        	applicationName = angular.isUndefined( applicationName ) ? "" : applicationName;
 	        	preUrlParam = urlParam;
@@ -371,6 +370,7 @@
 	        };
 	        $scope.pin = function() {
 	        	bIsPinned = !bIsPinned;
+				analyticsService.send( analyticsService.CONST.MAIN, bIsPinned ? analyticsService.CONST.CLK_REALTIME_CHART_PIN_ON : analyticsService.CONST.CLK_REALTIME_CHART_PIN_OFF );
 	        	setPinColor();
 	        };
 	        $scope.resizePopup = function() {
@@ -391,7 +391,7 @@
 	        		$elAgentChartListWrapper.css("height", (popupHeight - cfg.css.titleHeight) + "px");
 	        	}
 	        	bIsFullWindow = !bIsFullWindow;
-	        }
+	        };
 	        $scope.toggleRealtime = function() {
 	        	if ( bIsWas === false ) return;
 	        	
@@ -408,7 +408,7 @@
 	        		initReceive();
 	        		bShowRealtimeChart = true;
 	        	}
-	        }
+	        };
 	        
 	        $scope.closePopup = function() {
 	        	stopReceive();
@@ -416,7 +416,7 @@
 				$elWarningMessage.hide();
 				$elTitle.html( currentApplicationName = "" );
 				$elSumChartCount.html("0");
-	        }
+	        };
 	        $($window).on("resize", function() {
 	        	adjustWidth();
 	        });

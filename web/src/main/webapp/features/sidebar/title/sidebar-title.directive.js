@@ -7,8 +7,8 @@
 	 * @name sidebarTitleDirective
 	 * @class
 	 */
-	pinpointApp.directive("sidebarTitleDirective", [ "$timeout", "$rootScope", "CONST_SET",
-	    function ($timeout, $rootScope, CONST_SET) {
+	pinpointApp.directive("sidebarTitleDirective", [ "$timeout", "$rootScope", "PreferenceService",
+	    function ( $timeout, $rootScope, preferenceService ) {
 	        return {
 	            restrict: "E",
 	            replace: true,
@@ -24,7 +24,7 @@
 	                });
 
 					function initializeAgentList( node ) {
-						scope.currentAgent = CONST_SET.AGENT_ALL;
+						scope.currentAgent = preferenceService.getAgentAllStr();
 						if ( typeof node === "undefined" ) {
 							scope.agentList = [];
 							return;
@@ -41,7 +41,8 @@
 						scope.agentList = aAgentList;
 					}
 	
-	                function initialize(oSidebarTitleVoService) {
+	                function initialize( oSidebarTitleVoService, node ) {
+						scope.isWas = angular.isDefined( node ) ? ( angular.isDefined( node.isWas ) ? node.isWas : false ) : false;
 	                    scope.stImage = oSidebarTitleVoService.getImage();
 	                    scope.stImageShow = oSidebarTitleVoService.getImage() ? true : false;
 	                    scope.stTitle = oSidebarTitleVoService.getTitle();
@@ -54,13 +55,14 @@
 	                }
 	
 	                function empty() {
-						scope.currentAgent = CONST_SET.AGENT_ALL;
+						scope.currentAgent = preferenceService.getAgentAllStr();
 	                    scope.stImage = false;
 	                    scope.stImageShow = false;
 	                    scope.stTitle = false;
 	                    scope.stImage2 = false;
 	                    scope.stTitle2 = false;
 	                    scope.stImage2Show = false;
+						scope.isWas = false;
 						scope.agentList = [];
 	                }
 					scope.changeAgent = function() {
@@ -70,8 +72,8 @@
 	                 * scope on sidebarTitle.initialize.namespace
 	                 */
 	                scope.$on("sidebarTitleDirective.initialize." + scope.namespace, function (event, oSidebarTitleVoService, node) {
+	                    initialize( oSidebarTitleVoService, node );
 						initializeAgentList( node );
-	                    initialize(oSidebarTitleVoService);
 	                });
 	
 	                /**

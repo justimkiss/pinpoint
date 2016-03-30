@@ -72,7 +72,9 @@ public class AgentInfoSenderTest {
     public static final int PORT = SocketUtils.findAvailableTcpPort(50050);
     public static final String HOST = "127.0.0.1";
 
-    private final TestAwaitUtils awaitUtils = new TestAwaitUtils(100, 60000);
+    private final int testAwaitTimeMs = 50;
+
+    private final TestAwaitUtils awaitUtils = new TestAwaitUtils(this.testAwaitTimeMs, 60000);
 
     @Test
     public void agentInfoShouldBeSent() throws InterruptedException {
@@ -284,7 +286,9 @@ public class AgentInfoSenderTest {
 
         try {
             agentInfoSender.start();
-            waitExpectedRequestCount(requestCount, expectedRefreshCount);
+            while (requestCount.get() < expectedRefreshCount) {
+                Thread.sleep(1000L);
+            }
         } finally {
             closeAll(serverAcceptor, agentInfoSender, pinpointClient, socketFactory);
         }
@@ -355,13 +359,15 @@ public class AgentInfoSenderTest {
         metaDataContext.addListener(agentInfoSender);
         // When
         for (int i = 0; i < threadCount; ++i) {
+            final String serviceName = "/name" + i;
             executorService.submit(new Callable<Void>() {
                 @Override
                 public Void call() throws Exception {
                     initLatch.countDown();
                     try {
                         startLatch.await();
-                        metaDataContext.publishServerMetaData();
+                        metaDataContext.addServiceInfo(serviceName, Collections.<String>emptyList());
+                        metaDataContext.notifyListeners();
                     } catch (final Throwable t) {
                         exceptions.add(t);
                     } finally {
@@ -541,7 +547,7 @@ public class AgentInfoSenderTest {
             @Override
             public boolean checkCompleted() {
                 return requestCount.get() == expectedRequestCount;
-            };
+            }
         });
 
         Assert.assertTrue(pass);
